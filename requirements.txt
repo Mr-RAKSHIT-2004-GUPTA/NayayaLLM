@@ -1,0 +1,5 @@
+pandas
+numpy
+nltk
+sentence-transformers
+faiss-cpu
