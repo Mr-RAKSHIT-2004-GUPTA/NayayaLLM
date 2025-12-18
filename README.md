@@ -9,3 +9,4 @@ This module builds a vector-based legal knowledge base from the NayaAnumana data
 
 The knowledge base is implemented as an independent module and will later be integrated
 with a Retrieval-Augmented Generation system using Groq APIs.
+"# NayayaLLM" 
