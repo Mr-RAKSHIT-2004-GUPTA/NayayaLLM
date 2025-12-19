@@ -43,25 +43,3 @@ next-env.d.ts
 # firebase
 firebase-debug.log
 firestore-debug.log
-
-# Python
-__pycache__/
-*.pyc
-.env
-.env.local
-
-# Logs & cache
-logs/
-
-# Editor
-.vscode/
-
-# Frontend
-frontend/node_modules/
-frontend/dist/
-
-# Dev / experimental
-initial_files/
-data/raw/
-data/extracted/
-sample_judgment.txt

@@ -12,6 +12,7 @@ export type FormState = {
   result?: any;
   message?: string;
   mode?: "qa" | "section" | "summary";
+  documentContent?: string;
 } | null;
 
 
@@ -47,10 +48,11 @@ export async function handleDocumentAction(
   formData: FormData
 ): Promise<FormState> {
 
-  const file = formData.get("file") as File;
+  const file = formData.get("file") as File | null;
   const text = formData.get("text") as string;
+  const documentContent = formData.get("documentContent") as string;
 
-  if (!file.size && !text) {
+  if ((!file || !file.size) && !text && !documentContent) {
     return {
       type: "error",
       message: "Please upload a document or paste text to analyze.",
@@ -83,21 +85,34 @@ export async function handleDocumentAction(
   if (question) {
     apiFormData.append('question', question);
   }
+  
+  let newDocumentContent: string | undefined = documentContent;
+
   if (file && file.size > 0) {
+    // If a new file is uploaded, use it.
     apiFormData.append('file', file);
-  }
-  if (text) {
+    // We can't easily read file content on the server action, so we'll pass it back
+    // This is a simplified approach; a real app might handle this differently.
+    // For now, we'll just signal that content is present from the file.
+    newDocumentContent = await file.text();
+  } else if (text) {
+    // If text is pasted, use it.
     apiFormData.append('text', text);
+    newDocumentContent = text;
+  } else if (documentContent) {
+    // If no new file/text, use the persisted content.
+    apiFormData.append('text', documentContent);
+    newDocumentContent = documentContent;
   }
 
 
   try {
     const result = await callFastAPI(apiFormData);
-    return { type: "success", result, mode: result.mode };
+    return { type: "success", result, mode: result.mode, documentContent: newDocumentContent };
 
   } catch (error) {
     console.error(error);
     const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
-    return { type: "error", message: `API call failed: ${errorMessage}` };
+    return { type: "error", message: `API call failed: ${errorMessage}`, documentContent: newDocumentContent };
   }
 }

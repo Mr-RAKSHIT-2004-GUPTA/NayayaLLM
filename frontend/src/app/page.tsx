@@ -1,17 +1,18 @@
+
 "use client";
 
 import { useRef, useEffect, useState } from "react";
 import { useActionState } from "react";
 import {
   FileText,
-  Upload,
   Sparkles,
   BookText,
   ListCollapse,
   X,
   FileUp,
   BrainCircuit,
-  CheckCircle2
+  CheckCircle2,
+  FileCheck,
 } from "lucide-react";
 
 import { handleDocumentAction, type FormState } from "@/app/actions";
@@ -30,41 +31,78 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 const initialState: FormState = null;
 
 export default function Home() {
-  const [formState, formAction] = useActionState(
+  const [formState, formAction, isPending] = useActionState(
     handleDocumentAction,
     initialState
   );
 
+  const [localFormState, setLocalFormState] = useState<FormState>(initialState);
+  
   const formRef = useRef<HTMLFormElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [fileName, setFileName] = useState<string>('');
+  const [pastedText, setPastedText] = useState<string>('');
   
   // We need this state to force re-render when inputs are cleared.
   const [inputVersion, setInputVersion] = useState(0);
 
+  const documentIsLoaded = !!localFormState?.documentContent;
+
   const { toast } = useToast();
 
   useEffect(() => {
-    if (formState?.type === "error") {
+    setLocalFormState(formState);
+  }, [formState]);
+  
+  useEffect(() => {
+    if (localFormState?.type === "error") {
       toast({
         variant: "destructive",
         title: "Error",
-        description: formState.message,
+        description: localFormState.message,
       });
     }
-  }, [formState, toast]);
+    // If we have document content from the server, but no file/text input from the user,
+    // it means we've successfully loaded and persisted a document.
+    if (localFormState?.type === "success" && localFormState.documentContent && !fileName && !pastedText) {
+      setFileName('Document loaded'); // Show a generic "loaded" message.
+    }
+  }, [localFormState, toast, fileName, pastedText]);
 
   const clearInputs = () => {
-    if (formRef.current) {
-      formRef.current.reset();
-    }
     setFileName('');
+    setPastedText('');
     if (fileInputRef.current) {
         fileInputRef.current.value = "";
     }
-    setInputVersion(v => v + 1);
+    setLocalFormState(null);
+    setInputVersion(v => v + 1); // Force re-render the form
   };
   
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setFileName(file.name);
+      // Disable text area if a file is chosen
+      setPastedText('');
+    }
+  };
+
+  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const text = e.target.value;
+    setPastedText(text);
+    if (text) {
+      // Clear file input if text is entered
+      setFileName('');
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+  
+  const hasFile = !!fileName;
+  const hasPastedText = !!pastedText;
+
   return (
     <div className="flex min-h-screen w-full flex-col bg-background selection:bg-primary/20">
        <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-border/50 bg-background/80 px-4 backdrop-blur-sm sm:px-6">
@@ -89,35 +127,45 @@ export default function Home() {
           className="grid items-start gap-8 lg:grid-cols-2"
           key={inputVersion}
         >
+          {/* Hidden input to persist document content across submissions */}
+          {localFormState?.documentContent && (
+             <input type="hidden" name="documentContent" value={localFormState.documentContent} />
+          )}
+
           <div className="lg:sticky lg:top-24 space-y-8">
             <Card className="bg-card/50 shadow-lg shadow-primary/5">
-              <CardHeader>
-                <CardTitle className="font-headline text-2xl tracking-tight flex items-center gap-2">
-                  <FileText className="w-6 h-6" />
-                  <span>Analyze Document</span>
-                </CardTitle>
-                <CardDescription>
-                  Upload a file or paste text. The AI will process it based on
-                  your selected mode.
-                </CardDescription>
+              <CardHeader className="flex flex-row items-start justify-between">
+                <div className="space-y-1.5">
+                  <CardTitle className="font-headline text-2xl tracking-tight flex items-center gap-2">
+                    <FileText className="w-6 h-6" />
+                    <span>Analyze Document</span>
+                  </CardTitle>
+                  <CardDescription>
+                    Upload a file or paste text to begin.
+                  </CardDescription>
+                </div>
+                 {(documentIsLoaded || hasFile || hasPastedText) && (
+                  <Button
+                      type="button"
+                      variant="ghost"
+                      className="text-muted-foreground hover:text-foreground -mr-2 -mt-2"
+                      onClick={clearInputs}
+                    >
+                      <X className="h-4 w-4 mr-1" />
+                      Clear
+                    </Button>
+                 )}
               </CardHeader>
               <CardContent className="space-y-6">
                  <div className="relative">
                     <Textarea
                       name="text"
                       placeholder="Paste your legal document text here..."
-                      className="min-h-[250px] resize-y pr-10 focus:ring-1 focus:ring-primary/80"
+                      className="min-h-[250px] resize-y focus:ring-1 focus:ring-primary/80"
+                      disabled={documentIsLoaded || hasFile}
+                      onChange={handleTextChange}
+                      value={pastedText}
                     />
-                     <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="absolute top-2 right-2 h-7 w-7 text-muted-foreground hover:text-foreground"
-                        onClick={clearInputs}
-                      >
-                        <X className="h-4 w-4" />
-                        <span className="sr-only">Clear input</span>
-                      </Button>
                   </div>
                 
                 <div className="flex items-center text-sm text-muted-foreground">
@@ -129,9 +177,19 @@ export default function Home() {
                 <div className="w-full">
                   <Label
                     htmlFor="file-upload"
-                    className="flex w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-border/50 bg-background/50 p-6 text-center transition hover:border-primary/80 hover:bg-primary/5"
+                    className={`flex w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-border/50 bg-background/50 p-6 text-center transition ${documentIsLoaded || hasPastedText ? 'cursor-not-allowed opacity-60' : 'hover:border-primary/80 hover:bg-primary/5'}`}
                   >
-                    {fileName ? (
+                    {documentIsLoaded ? (
+                       <>
+                        <FileCheck className="h-8 w-8 text-green-500" />
+                        <p className="mt-2 text-sm font-semibold text-foreground">
+                          Document loaded
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Ready for analysis. Clear to upload a new one.
+                        </p>
+                      </>
+                    ) : fileName ? (
                        <>
                         <CheckCircle2 className="h-8 w-8 text-green-500" />
                         <p className="mt-2 text-sm font-semibold text-foreground">
@@ -162,7 +220,8 @@ export default function Home() {
                       type="file"
                       className="hidden"
                       accept=".txt,.pdf"
-                      onChange={(e) => setFileName(e.target.files?.[0]?.name || '')}
+                      onChange={handleFileChange}
+                      disabled={documentIsLoaded || hasPastedText}
                     />
                   </Label>
                 </div>
@@ -209,7 +268,7 @@ export default function Home() {
                         />
                       </div>
                       
-                      <SubmitButton className="w-full text-lg font-bold" size="lg">
+                      <SubmitButton className="w-full text-lg font-bold" size="lg" disabled={!documentIsLoaded && !hasFile && !hasPastedText}>
                         Analyze Now
                       </SubmitButton>
                 </CardContent>
@@ -227,7 +286,7 @@ export default function Home() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <ResultDisplay formState={formState} />
+              <ResultDisplay formState={localFormState} />
             </CardContent>
           </Card>
         </form>
@@ -235,3 +294,7 @@ export default function Home() {
     </div>
   );
 }
+
+    
+
+    
