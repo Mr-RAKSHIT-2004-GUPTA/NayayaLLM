@@ -1,6 +1,7 @@
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional
+import faiss
 
 from scripts.upload_rag import (
     build_temp_index,
@@ -10,6 +11,18 @@ from scripts.upload_rag import (
 )
 
 app = FastAPI(title="Legal Document RAG API")
+
+#---------------------------------------------
+# Solving the memory problem
+#---------------------------------------------
+
+index = faiss.read_index(
+    "embeddings/faiss.index",
+    faiss.IO_FLAG_MMAP | faiss.IO_FLAG_READ_ONLY
+)
+
+
+
 
 # --------------------------------------------------
 # CORS (Firebase frontend support)
