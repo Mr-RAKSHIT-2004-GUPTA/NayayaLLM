@@ -19,7 +19,7 @@ frontend/node_modules/
 frontend/dist/
 
 # Dev / experimental
-initial_files/
-data/raw/
-data/extracted/
+backend/initial_files/
+backend/data/raw/
+backend/data/extracted/
 sample_judgment.txt
